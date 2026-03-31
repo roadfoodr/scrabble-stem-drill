@@ -82,24 +82,13 @@ export class GeminiSession {
           functionDeclarations: [
             {
               name: 'mark_word_found',
-              description: 'Call this when the user correctly guesses a bingo word',
+              description: 'Call this every time the user correctly guesses a bingo word. The UI depends on this call.',
               parameters: {
                 type: 'object',
                 properties: {
                   word: { type: 'string', description: 'The correctly guessed word in uppercase' },
                 },
                 required: ['word'],
-              },
-            },
-            {
-              name: 'advance_prompt',
-              description: 'Call this when moving to the next stem+letter prompt (after completing all words or when the user says skip)',
-              parameters: {
-                type: 'object',
-                properties: {
-                  promptIndex: { type: 'integer', description: 'The 1-based index of the new prompt in the drill queue' },
-                },
-                required: ['promptIndex'],
               },
             },
           ],

@@ -1,23 +1,17 @@
 import { DrillState } from './state.js';
-import { GeminiSession } from './gemini-session.js';
-import { AudioCapture } from './audio-capture.js';
-import { AudioPlayback } from './audio-playback.js';
+import { GeminiDrill } from './gemini-drill.js';
 import { OfflineFallback } from './offline-fallback.js';
-import { buildSystemPrompt } from './system-prompt.js';
 
 const $ = (id) => document.getElementById(id);
 
 // --- State ---
 let drillState = null;
-let gemini = null;
-let capture = null;
-let playback = null;
+let geminiDrill = null;
 let offline = null;
 let snapshot = null;
 let mode = 'idle'; // 'idle' | 'gemini' | 'offline' | 'paused'
 
 // --- Worker URL ---
-// Resolve relative to current origin (Pages Function at /ws)
 const WORKER_URL = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
 
 // --- UI helpers ---
@@ -87,78 +81,30 @@ async function startGemini() {
   drillState.buildQueue();
   drillState.loadPrompt(0);
 
-  gemini = new GeminiSession(WORKER_URL);
-  capture = new AudioCapture();
-  playback = new AudioPlayback();
-
-  gemini.onAudio = (base64) => {
-    if (base64 === '') {
-      playback.flush(); // interruption
-    } else {
-      playback.enqueue(base64);
-    }
-  };
-
-  gemini.onText = (text) => {
+  geminiDrill = new GeminiDrill(drillState, WORKER_URL);
+  geminiDrill.onStatusUpdate = (text) => {
     showStatus(text);
+    showProgress();
   };
-
-  gemini.onToolCall = (name, args) => {
-    if (name === 'mark_word_found' && drillState) {
-      drillState.markFound(args.word);
-      showProgress();
-    } else if (name === 'advance_prompt' && drillState) {
-      drillState.loadPrompt(args.promptIndex - 1);
-      showProgress();
-    }
-  };
-
-  gemini.onError = (err) => {
-    showStatus(`Connection error: ${err.message}`);
-  };
-
-  gemini.onDisconnect = () => {
-    if (mode === 'gemini') {
-      showStatus('Gemini disconnected. Switching to offline mode.');
-      cleanupGemini();
-      startOffline();
-    }
+  geminiDrill.onFallbackToOffline = () => {
+    showStatus('Gemini disconnected. Switching to offline mode.');
+    cleanupGemini();
+    startOffline();
   };
 
   try {
-    const prompt = buildSystemPrompt(drillState);
-    await gemini.connect(prompt);
+    await geminiDrill.start();
+    setMode('gemini');
+    showProgress();
   } catch {
-    showStatus('Could not connect to Gemini. Starting offline mode.');
     cleanupGemini();
     startOffline();
-    return;
   }
-
-  try {
-    await capture.start();
-  } catch (e) {
-    showStatus(`Mic error: ${e.message}. Starting offline mode.`);
-    cleanupGemini();
-    startOffline();
-    return;
-  }
-
-  capture.onChunk = (base64) => {
-    gemini.sendAudio(base64);
-  };
-
-  setMode('gemini');
-  showProgress();
 }
 
 function cleanupGemini() {
-  capture?.stop();
-  capture = null;
-  playback?.close();
-  playback = null;
-  gemini?.disconnect();
-  gemini = null;
+  geminiDrill?.stop();
+  geminiDrill = null;
 }
 
 // --- Offline mode ---
@@ -206,39 +152,19 @@ async function resume() {
   }
   showProgress();
 
-  // Try Gemini first, fall back to offline
-  gemini = new GeminiSession(WORKER_URL);
-  capture = new AudioCapture();
-  playback = new AudioPlayback();
-
-  gemini.onAudio = (base64) => {
-    if (base64 === '') playback.flush();
-    else playback.enqueue(base64);
+  geminiDrill = new GeminiDrill(drillState, WORKER_URL);
+  geminiDrill.onStatusUpdate = (text) => {
+    showStatus(text);
+    showProgress();
   };
-  gemini.onText = (text) => showStatus(text);
-  gemini.onToolCall = (name, args) => {
-    if (name === 'mark_word_found' && drillState) {
-      drillState.markFound(args.word);
-      showProgress();
-    } else if (name === 'advance_prompt' && drillState) {
-      drillState.loadPrompt(args.promptIndex - 1);
-      showProgress();
-    }
-  };
-  gemini.onError = (err) => showStatus(`Error: ${err.message}`);
-  gemini.onDisconnect = () => {
-    if (mode === 'gemini') {
-      showStatus('Disconnected. Switching to offline.');
-      cleanupGemini();
-      startOffline();
-    }
+  geminiDrill.onFallbackToOffline = () => {
+    showStatus('Disconnected. Switching to offline.');
+    cleanupGemini();
+    startOffline();
   };
 
   try {
-    const prompt = buildSystemPrompt(drillState);
-    await gemini.connect(prompt);
-    await capture.start();
-    capture.onChunk = (base64) => gemini.sendAudio(base64);
+    await geminiDrill.start();
     setMode('gemini');
   } catch {
     cleanupGemini();
@@ -265,17 +191,17 @@ $('btnPrimary').addEventListener('click', async () => {
 });
 
 $('btnHint').addEventListener('click', () => {
-  if (mode === 'gemini' && gemini?.connected) {
-    gemini.sendText('hint');
-  } else if (mode === 'offline' && offline) {
-    offline._doHint();
+  if (mode === 'gemini') {
+    geminiDrill?.doHint();
+  } else if (mode === 'offline') {
+    offline?._doHint();
   }
 });
 
 $('btnSkip').addEventListener('click', () => {
-  if (mode === 'gemini' && gemini?.connected) {
-    gemini.sendText('skip');
-  } else if (mode === 'offline' && offline) {
+  if (mode === 'gemini') {
+    geminiDrill?.doSkip();
+  } else if (mode === 'offline') {
     drillState.skip();
     showProgress();
     offline._speak('Skipping. ' + offline._promptPhrase());
