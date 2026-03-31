@@ -33,8 +33,9 @@ export class GeminiSession {
         this._sendSetup(systemPrompt);
       };
 
-      this._ws.onmessage = (e) => {
-        this._handleMessage(e.data);
+      this._ws.onmessage = async (e) => {
+        const data = e.data instanceof Blob ? await e.data.text() : e.data;
+        this._handleMessage(data);
       };
 
       this._ws.onerror = () => {
@@ -62,16 +63,16 @@ export class GeminiSession {
     const setup = {
       setup: {
         model: MODEL,
-        config: {
+        generationConfig: {
           responseModalities: ['AUDIO'],
-          systemInstruction: {
-            parts: [{ text: systemPrompt }],
-          },
           speechConfig: {
             voiceConfig: {
               prebuiltVoiceConfig: { voiceName: 'Kore' },
             },
           },
+        },
+        systemInstruction: {
+          parts: [{ text: systemPrompt }],
         },
       },
     };
