@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>WS Debug</title>
+  <style>
+    :root { font-family: -apple-system, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    body {
+      margin: 0;
+      padding: 16px;
+      background: #0b0c10;
+      color: #f4f6fb;
+      -webkit-text-size-adjust: 100%;
+    }
+    .card {
+      background: #141621;
+      border: 1px solid #2a2f45;
+      border-radius: 14px;
+      padding: 16px;
+      max-width: 960px;
+      margin: 0 auto 14px auto;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+    }
+    h1 { font-size: 20px; margin: 0 0 10px 0; }
+    p, label { color: #c5cbe4; }
+    .row {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    input, textarea, button {
+      font: inherit;
+      border-radius: 10px;
+      border: 1px solid #2a2f45;
+      background: #111428;
+      color: #f4f6fb;
+      padding: 10px 12px;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    button {
+      cursor: pointer;
+      width: auto;
+      min-width: 140px;
+      background: #1c2040;
+    }
+    button:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+    .good { background: #153a2b; border-color: #1f5b42; }
+    .danger { background: #3a1720; border-color: #5b2433; }
+    #log {
+      min-height: 320px;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+    .small { font-size: 12px; color: #aab1d6; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>WebSocket Debug</h1>
+    <p>Log-only Gemini probe for the `/ws` proxy. It sends setup, sends one kickoff turn, and logs every frame without playing audio.</p>
+
+    <div class="row">
+      <label for="wsUrl">WebSocket URL</label>
+      <input id="wsUrl" />
+    </div>
+
+    <div class="row">
+      <label for="systemPrompt">System prompt</label>
+      <textarea id="systemPrompt">You are a short test assistant. Reply in one sentence. If you receive the kickoff message, say that the proxy path is working.</textarea>
+    </div>
+
+    <div class="row">
+      <label for="kickoff">Kickoff text</label>
+      <input id="kickoff" value="Start the test. Please reply once." />
+    </div>
+
+    <div class="buttons" style="margin-top: 12px;">
+      <button id="btnConnect" class="good">Connect + Send Test</button>
+      <button id="btnSend" disabled>Send Kickoff Again</button>
+      <button id="btnClose" class="danger" disabled>Close Socket</button>
+      <button id="btnClear">Clear Log</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <label for="log">Log</label>
+    <textarea id="log" readonly></textarea>
+    <div class="small" style="margin-top: 10px;">
+      Tip: append <code>?ws=wss://your-host/ws</code> to compare different proxy runtimes.
+    </div>
+  </div>
+
+  <script type="module" src="./ws-debug.js"></script>
+</body>
+</html>

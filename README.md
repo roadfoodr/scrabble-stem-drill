@@ -42,10 +42,26 @@ iPhone Safari  -->  Cloudflare Pages Function (/ws)  -->  Gemini Live API
 
 See [PLANNING/deployment-guide.md](PLANNING/deployment-guide.md) for detailed instructions.
 
+## Local debugging
+
+You can exercise the same `/ws` Pages Function locally without redeploying:
+
+1. Copy `.dev.vars.example` to `.dev.vars`
+2. Put your real `GEMINI_API_KEY` in `.dev.vars`
+3. Run `npx wrangler pages dev .`
+4. Open `http://127.0.0.1:8788/debug/ws-debug` for a text-only socket probe, or `http://127.0.0.1:8788/` for the full app
+
+The debug page strips out mic/audio complexity and logs every frame, which makes it much easier to tell whether the proxy itself is failing.
+
+Both the main app and debug page also accept `?ws=wss://...` so you can point them at a standalone Worker or another proxy host without changing code. See [PLANNING/local-debug.md](PLANNING/local-debug.md) for the full workflow and the runtime decision rule.
+
 ## Project structure
 
 ```
 index.html              Entry point
+debug/
+  ws-debug.html         Local text-only WS debug page
+  ws-debug.js           Text-only WebSocket probe UI
 js/
   main.js               Orchestration and UI
   data.js               Stem/letter/word data
