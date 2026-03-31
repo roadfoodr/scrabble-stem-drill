@@ -35,10 +35,17 @@ export class GeminiSession {
         this._sendSetup(systemPrompt);
       };
 
-      this._ws.onmessage = (e) => {
-        const data = e.data instanceof ArrayBuffer
-          ? new TextDecoder().decode(e.data)
-          : e.data;
+      this._ws.onmessage = async (e) => {
+        let data;
+        if (typeof e.data === 'string') {
+          data = e.data;
+        } else if (e.data instanceof ArrayBuffer) {
+          data = new TextDecoder().decode(e.data);
+        } else if (e.data instanceof Blob) {
+          data = await e.data.text();
+        } else {
+          data = String(e.data);
+        }
         this._handleMessage(data);
       };
 

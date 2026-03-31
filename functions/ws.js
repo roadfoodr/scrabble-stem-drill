@@ -2,7 +2,7 @@ const GEMINI_WS_URL =
   'https://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
 
 export async function onRequest(context) {
-  const { request, env } = context;
+  const { request, env, waitUntil } = context;
 
   if (request.headers.get('Upgrade') !== 'websocket') {
     return new Response('Expected WebSocket upgrade', { status: 426 });
@@ -31,18 +31,26 @@ export async function onRequest(context) {
   const gemini = geminiResp.webSocket;
   gemini.accept();
 
-  // Bidirectional forwarding — Cloudflare delivers WebSocket messages
-  // as Blob objects; convert to text so the client receives JSON.
+  // Keep the Worker context alive for the duration of the WebSocket session.
+  // Without this, async event handlers die after the function returns.
+  const sessionDone = new Promise((resolve) => {
+    server.addEventListener('close', resolve);
+    gemini.addEventListener('close', resolve);
+  });
+  waitUntil(sessionDone);
+
+  // Bidirectional forwarding — Cloudflare delivers messages as Blobs.
+  // Convert to ArrayBuffer so raw bytes are transmitted.
   server.addEventListener('message', async (e) => {
     try {
-      const msg = typeof e.data === 'string' ? e.data : await e.data.text();
-      gemini.send(msg);
+      const data = typeof e.data === 'string' ? e.data : await e.data.arrayBuffer();
+      gemini.send(data);
     } catch {}
   });
   gemini.addEventListener('message', async (e) => {
     try {
-      const msg = typeof e.data === 'string' ? e.data : await e.data.text();
-      server.send(msg);
+      const data = typeof e.data === 'string' ? e.data : await e.data.arrayBuffer();
+      server.send(data);
     } catch {}
   });
 
