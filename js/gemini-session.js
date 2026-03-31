@@ -35,11 +35,9 @@ export class GeminiSession {
       };
 
       this._ws.onmessage = (e) => {
-        console.log('WS message type:', typeof e.data, e.data instanceof ArrayBuffer ? 'ArrayBuffer' : e.data instanceof Blob ? 'Blob' : 'string', 'size:', e.data?.byteLength ?? e.data?.size ?? e.data?.length);
         const data = e.data instanceof ArrayBuffer
           ? new TextDecoder().decode(e.data)
           : e.data;
-        console.log('Decoded:', data.substring(0, 200));
         this._handleMessage(data);
       };
 

@@ -31,12 +31,19 @@ export async function onRequest(context) {
   const gemini = geminiResp.webSocket;
   gemini.accept();
 
-  // Bidirectional forwarding
-  server.addEventListener('message', (e) => {
-    try { gemini.send(e.data); } catch {}
+  // Bidirectional forwarding — Cloudflare delivers WebSocket messages
+  // as Blob objects; convert to text so the client receives JSON.
+  server.addEventListener('message', async (e) => {
+    try {
+      const msg = typeof e.data === 'string' ? e.data : await e.data.text();
+      gemini.send(msg);
+    } catch {}
   });
-  gemini.addEventListener('message', (e) => {
-    try { server.send(e.data); } catch {}
+  gemini.addEventListener('message', async (e) => {
+    try {
+      const msg = typeof e.data === 'string' ? e.data : await e.data.text();
+      server.send(msg);
+    } catch {}
   });
 
   server.addEventListener('close', (e) => {
