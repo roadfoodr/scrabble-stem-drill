@@ -24,6 +24,7 @@ export class GeminiSession {
 
       try {
         this._ws = new WebSocket(this._workerUrl);
+        this._ws.binaryType = 'arraybuffer';
       } catch (e) {
         reject(e);
         return;
@@ -33,8 +34,10 @@ export class GeminiSession {
         this._sendSetup(systemPrompt);
       };
 
-      this._ws.onmessage = async (e) => {
-        const data = e.data instanceof Blob ? await e.data.text() : e.data;
+      this._ws.onmessage = (e) => {
+        const data = e.data instanceof ArrayBuffer
+          ? new TextDecoder().decode(e.data)
+          : e.data;
         this._handleMessage(data);
       };
 
