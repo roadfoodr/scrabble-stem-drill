@@ -68,6 +68,21 @@ function sendSetup() {
       systemInstruction: {
         parts: [{ text: systemPromptInput.value }],
       },
+      tools: [{
+        functionDeclarations: [
+          {
+            name: 'mark_word_found',
+            description: 'Use this silently every time the user correctly guesses a new bingo word. Never say the tool name aloud.',
+            parameters: {
+              type: 'object',
+              properties: {
+                word: { type: 'string', description: 'The correctly guessed word in uppercase' },
+              },
+              required: ['word'],
+            },
+          },
+        ],
+      }],
     },
   });
 }
@@ -115,6 +130,19 @@ function connect() {
         setupComplete = true;
         writeLog('SETUP COMPLETE');
         sendKickoff();
+      }
+      if (parsed.toolCall?.functionCalls?.length) {
+        const functionResponses = parsed.toolCall.functionCalls.map((fc) => ({
+          id: fc.id,
+          name: fc.name,
+          response: { result: 'ok' },
+        }));
+        writeLog(`TOOL CALLS ${JSON.stringify(parsed.toolCall.functionCalls, null, 2)}`);
+        sendJson('OUT toolResponse', {
+          toolResponse: {
+            functionResponses,
+          },
+        });
       }
     } catch {
       // Keep raw logs even when frames are not valid JSON.

@@ -104,7 +104,7 @@ export class GeminiSession {
           functionDeclarations: [
             {
               name: 'mark_word_found',
-              description: 'Call this every time the user correctly guesses a bingo word. The UI depends on this call.',
+              description: 'Use this silently every time the user correctly guesses a new bingo word. Never say the tool name aloud. The UI updates only from this tool call.',
               parameters: {
                 type: 'object',
                 properties: {
@@ -161,15 +161,25 @@ export class GeminiSession {
     // Tool calls (function calling)
     if (msg.toolCall?.functionCalls) {
       for (const fc of msg.toolCall.functionCalls) {
+        console.log('[GeminiSession] toolCall', {
+          name: fc.name,
+          id: fc.id,
+          args: fc.args || {},
+        });
         this.onToolCall?.(fc.name, fc.args || {});
         // Send tool response so Gemini can continue
-        this._ws?.send(JSON.stringify({
+        const toolResponse = {
           toolResponse: {
             functionResponses: [{
               id: fc.id,
+              name: fc.name,
               response: { result: 'ok' },
             }],
           },
+        };
+        console.log('[GeminiSession] send toolResponse', toolResponse.toolResponse.functionResponses[0]);
+        this._ws?.send(JSON.stringify({
+          toolResponse: toolResponse.toolResponse,
         }));
       }
     }
