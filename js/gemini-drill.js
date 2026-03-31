@@ -50,6 +50,7 @@ export class GeminiDrill {
     };
 
     this._session.onDisconnect = () => {
+      console.log('GeminiDrill: onDisconnect fired, advancing:', this._advancing);
       if (!this._advancing) {
         this.onFallbackToOffline?.();
       }
@@ -62,11 +63,14 @@ export class GeminiDrill {
       found
     );
 
+    console.log('GeminiDrill: connecting...');
     await this._session.connect(prompt);
+    console.log('GeminiDrill: connected, starting capture...');
     await this._capture.start();
+    console.log('GeminiDrill: capture started, sending kick-off text...');
     this._capture.onChunk = (b64) => this._session?.sendAudio(b64);
-    // Kick off the conversation — Gemini won't speak until prompted
     this._session.sendText('Start the drill. Announce the stem and letter.');
+    console.log('GeminiDrill: session fully open');
   }
 
   _closeSession() {
