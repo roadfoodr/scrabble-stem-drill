@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Stem Bingo Drill</title>
+  <style>
+    :root { font-family: -apple-system, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    body {
+      margin: 0;
+      padding: 16px;
+      background: #0b0c10;
+      color: #f4f6fb;
+      -webkit-text-size-adjust: 100%;
+    }
+    .card {
+      background: #141621;
+      border: 1px solid #2a2f45;
+      border-radius: 14px;
+      padding: 16px;
+      max-width: 720px;
+      margin: 0 auto 14px auto;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+    }
+    h1 { font-size: 20px; margin: 0 0 10px 0; letter-spacing: 0.2px; }
+    .big {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      margin: 10px 0 12px 0;
+      line-height: 1.15;
+    }
+    .sub {
+      color: #c5cbe4;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    button {
+      appearance: none;
+      border: 1px solid #2a2f45;
+      background: #1c2040;
+      color: #f4f6fb;
+      padding: 14px 14px;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 700;
+      flex: 1 1 150px;
+      min-height: 52px;
+      cursor: pointer;
+    }
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: 0.4; cursor: default; }
+    button.secondary { background: #161a2f; }
+    button.danger { background: #3a1720; border-color: #5b2433; }
+    button.good { background: #153a2b; border-color: #1f5b42; }
+    .status {
+      font-size: 15px;
+      line-height: 1.35;
+      color: #dbe2ff;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin-top: 10px;
+    }
+    .pill {
+      display: inline-block;
+      background: #111428;
+      border: 1px solid #2a2f45;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      color: #c5cbe4;
+      margin-right: 8px;
+      margin-top: 6px;
+    }
+    .conn-gemini { color: #5beb8a; border-color: #1f5b42; }
+    .conn-offline { color: #ebc95b; border-color: #5b4e1f; }
+    .small { font-size: 12px; color: #aab1d6; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .divider { height: 1px; background: #2a2f45; margin: 14px 0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Stem Bingo Drill</h1>
+
+    <div id="prompt" class="big">Tap Start</div>
+
+    <div class="sub">
+      Voice commands:
+      <span class="pill mono">hint</span>
+      <span class="pill mono">skip</span>
+      <span class="pill mono">repeat</span>
+    </div>
+
+    <div class="row">
+      <button id="btnPrimary" class="good">Start</button>
+      <button id="btnHint" class="secondary" disabled>Hint</button>
+      <button id="btnSkip" class="secondary" disabled>Skip</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="sub">
+      <span id="progressPill" class="pill">--</span>
+      <span id="connPill" class="pill">Mode: --</span>
+    </div>
+
+    <div id="status" class="status"></div>
+    <div class="small" style="margin-top:12px;">
+      Best on iPhone: keep foregrounded, or "Add to Home Screen". Falls back to offline voice if Gemini is unavailable.
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
