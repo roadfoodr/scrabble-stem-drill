@@ -62,13 +62,11 @@ export class GeminiDrill {
       found
     );
 
-    try {
-      await this._session.connect(prompt);
-      await this._capture.start();
-      this._capture.onChunk = (b64) => this._session?.sendAudio(b64);
-    } catch {
-      this.onFallbackToOffline?.();
-    }
+    await this._session.connect(prompt);
+    await this._capture.start();
+    this._capture.onChunk = (b64) => this._session?.sendAudio(b64);
+    // Kick off the conversation — Gemini won't speak until prompted
+    this._session.sendText('Start the drill. Announce the stem and letter.');
   }
 
   _closeSession() {
