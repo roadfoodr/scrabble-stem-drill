@@ -49,8 +49,8 @@ export class GeminiDrill {
       this.onStatusUpdate?.(`Connection error: ${err.message}`);
     };
 
-    this._session.onDisconnect = () => {
-      console.log('GeminiDrill: onDisconnect fired, advancing:', this._advancing);
+    this._session.onDisconnect = (info) => {
+      console.log('GeminiDrill: onDisconnect fired, advancing:', this._advancing, info || null);
       if (!this._advancing) {
         this.onFallbackToOffline?.();
       }

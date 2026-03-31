@@ -11,7 +11,7 @@ export class GeminiSession {
     this.onText = null;        // (text: string) => void
     this.onToolCall = null;    // (name: string, args: object) => void
     this.onError = null;       // (error: Error) => void
-    this.onDisconnect = null;  // () => void
+    this.onDisconnect = null;  // (info?: { code: number, reason: string, wasClean: boolean }) => void
   }
 
   get connected() {
@@ -32,6 +32,7 @@ export class GeminiSession {
       }
 
       this._ws.onopen = () => {
+        console.log('[GeminiSession] socket open', this._workerUrl);
         this._sendSetup(systemPrompt);
       };
 
@@ -46,11 +47,16 @@ export class GeminiSession {
         } else {
           data = String(e.data);
         }
+        console.log('[GeminiSession] inbound frame', {
+          type: typeof e.data === 'string' ? 'string' : e.data?.constructor?.name || typeof e.data,
+          length: data.length,
+        });
         this._handleMessage(data);
       };
 
       this._ws.onerror = () => {
         const err = new Error('WebSocket error');
+        console.error('[GeminiSession] socket error');
         if (this._setupReject) {
           this._setupReject(err);
           this._setupResolve = null;
@@ -59,13 +65,22 @@ export class GeminiSession {
         this.onError?.(err);
       };
 
-      this._ws.onclose = () => {
+      this._ws.onclose = (e) => {
+        console.log('[GeminiSession] socket close', {
+          code: e.code,
+          reason: e.reason,
+          wasClean: e.wasClean,
+        });
         if (this._setupReject) {
           this._setupReject(new Error('Connection closed before setup'));
           this._setupResolve = null;
           this._setupReject = null;
         }
-        this.onDisconnect?.();
+        this.onDisconnect?.({
+          code: e.code,
+          reason: e.reason,
+          wasClean: e.wasClean,
+        });
       };
     });
   }
@@ -102,6 +117,7 @@ export class GeminiSession {
         }],
       },
     };
+    console.log('[GeminiSession] send setup');
     this._ws.send(JSON.stringify(setup));
   }
 
@@ -115,6 +131,7 @@ export class GeminiSession {
 
     // Setup complete
     if (msg.setupComplete) {
+      console.log('[GeminiSession] setupComplete');
       if (this._setupResolve) {
         this._setupResolve();
         this._setupResolve = null;
@@ -165,6 +182,7 @@ export class GeminiSession {
 
   sendAudio(base64Chunk) {
     if (!this.connected) return;
+    console.log('[GeminiSession] send audio', base64Chunk.length);
     this._ws.send(JSON.stringify({
       realtimeInput: {
         audio: {
@@ -177,10 +195,10 @@ export class GeminiSession {
 
   sendText(text) {
     if (!this.connected) return;
+    console.log('[GeminiSession] send text', text);
     this._ws.send(JSON.stringify({
-      clientContent: {
-        turns: [{ role: 'user', parts: [{ text }] }],
-        turnComplete: true,
+      realtimeInput: {
+        text,
       },
     }));
   }

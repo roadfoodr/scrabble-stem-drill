@@ -25,6 +25,8 @@ ENV/
 # Environment variables
 .env
 .env.*
+.dev.vars
+.dev.vars.*
 
 # Testing / coverage
 .pytest_cache/

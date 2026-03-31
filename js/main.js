@@ -3,6 +3,7 @@ import { GeminiDrill } from './gemini-drill.js';
 import { OfflineFallback } from './offline-fallback.js';
 
 const $ = (id) => document.getElementById(id);
+const query = new URLSearchParams(location.search);
 
 // --- State ---
 let drillState = null;
@@ -12,7 +13,9 @@ let snapshot = null;
 let mode = 'idle'; // 'idle' | 'gemini' | 'offline' | 'paused'
 
 // --- Worker URL ---
-const WORKER_URL = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
+const WORKER_URL =
+  query.get('ws') ||
+  `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws`;
 
 // --- UI helpers ---
 function setMode(m) {
