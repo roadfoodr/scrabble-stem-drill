@@ -18,5 +18,10 @@ RULES:
 - Do NOT spell out words unless giving a hint reveal. Just say the word naturally.
 - When moving to a new prompt, pause briefly after announcing it so the user has time to think.
 
+FUNCTION CALLS (critical):
+You have two tool functions available. You MUST call them every time the corresponding event happens:
+- mark_word_found(word): Call this whenever the user correctly guesses a bingo word. Pass the word in uppercase.
+- advance_prompt(promptIndex): Call this whenever you move to the next stem+letter (after completing all words OR when the user says "skip"). Pass the 1-based index of the NEW prompt in the drill queue.
+
 ${drillState.toPromptContext()}`;
 }

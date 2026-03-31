@@ -103,6 +103,16 @@ async function startGemini() {
     showStatus(text);
   };
 
+  gemini.onToolCall = (name, args) => {
+    if (name === 'mark_word_found' && drillState) {
+      drillState.markFound(args.word);
+      showProgress();
+    } else if (name === 'advance_prompt' && drillState) {
+      drillState.loadPrompt(args.promptIndex - 1);
+      showProgress();
+    }
+  };
+
   gemini.onError = (err) => {
     showStatus(`Connection error: ${err.message}`);
   };
@@ -206,6 +216,15 @@ async function resume() {
     else playback.enqueue(base64);
   };
   gemini.onText = (text) => showStatus(text);
+  gemini.onToolCall = (name, args) => {
+    if (name === 'mark_word_found' && drillState) {
+      drillState.markFound(args.word);
+      showProgress();
+    } else if (name === 'advance_prompt' && drillState) {
+      drillState.loadPrompt(args.promptIndex - 1);
+      showProgress();
+    }
+  };
   gemini.onError = (err) => showStatus(`Error: ${err.message}`);
   gemini.onDisconnect = () => {
     if (mode === 'gemini') {

@@ -9,6 +9,7 @@ export class GeminiSession {
 
     this.onAudio = null;       // (base64: string) => void
     this.onText = null;        // (text: string) => void
+    this.onToolCall = null;    // (name: string, args: object) => void
     this.onError = null;       // (error: Error) => void
     this.onDisconnect = null;  // () => void
   }
@@ -77,6 +78,32 @@ export class GeminiSession {
         systemInstruction: {
           parts: [{ text: systemPrompt }],
         },
+        tools: [{
+          functionDeclarations: [
+            {
+              name: 'mark_word_found',
+              description: 'Call this when the user correctly guesses a bingo word',
+              parameters: {
+                type: 'object',
+                properties: {
+                  word: { type: 'string', description: 'The correctly guessed word in uppercase' },
+                },
+                required: ['word'],
+              },
+            },
+            {
+              name: 'advance_prompt',
+              description: 'Call this when moving to the next stem+letter prompt (after completing all words or when the user says skip)',
+              parameters: {
+                type: 'object',
+                properties: {
+                  promptIndex: { type: 'integer', description: 'The 1-based index of the new prompt in the drill queue' },
+                },
+                required: ['promptIndex'],
+              },
+            },
+          ],
+        }],
       },
     };
     this._ws.send(JSON.stringify(setup));
@@ -116,6 +143,22 @@ export class GeminiSession {
     if (msg.serverContent?.interrupted) {
       // Caller should flush audio playback
       this.onAudio?.(''); // empty string signals flush
+    }
+
+    // Tool calls (function calling)
+    if (msg.toolCall?.functionCalls) {
+      for (const fc of msg.toolCall.functionCalls) {
+        this.onToolCall?.(fc.name, fc.args || {});
+        // Send tool response so Gemini can continue
+        this._ws?.send(JSON.stringify({
+          toolResponse: {
+            functionResponses: [{
+              id: fc.id,
+              response: { result: 'ok' },
+            }],
+          },
+        }));
+      }
     }
 
     // Go away -- server wants us to disconnect
