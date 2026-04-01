@@ -8,9 +8,10 @@ Powered by [Gemini 3.1 Flash Live](https://ai.google.dev/gemini-api/docs/multimo
 
 1. Tap **Start** -- Gemini announces a stem + letter (e.g. "TISANE plus G")
 2. Say all the bingo words you can think of -- one at a time or several in a row
-3. Gemini confirms each word, tells you how many remain, and auto-advances when you find them all
-4. Say **hint** for progressive help, **skip** to move on, **repeat** to hear the prompt again
-5. Tap **Pause** to tear down the session; **Resume** picks up where you left off
+3. Gemini confirms each word and tells you how many remain
+4. When a challenge ends, you get a quick recap and say **ready** to continue
+5. Say **hint** for progressive help, **skip** to move on, **repeat** to hear the prompt again
+6. Tap **Pause** to tear down the session; **Resume** picks up where you left off
 
 ## Stems included
 
@@ -42,19 +43,6 @@ iPhone Safari  -->  Cloudflare Pages Function (/ws)  -->  Gemini Live API
 
 See [PLANNING/deployment-guide.md](PLANNING/deployment-guide.md) for detailed instructions.
 
-## Local debugging
-
-You can exercise the same `/ws` Pages Function locally without redeploying:
-
-1. Copy `.dev.vars.example` to `.dev.vars`
-2. Put your real `GEMINI_API_KEY` in `.dev.vars`
-3. Run `npx wrangler pages dev .`
-4. Open `http://127.0.0.1:8788/debug/ws-debug` for a text-only socket probe, or `http://127.0.0.1:8788/` for the full app
-
-The debug page strips out mic/audio complexity and logs every frame, which makes it much easier to tell whether the proxy itself is failing.
-
-Both the main app and debug page also accept `?ws=wss://...` so you can point them at a standalone Worker or another proxy host without changing code. See [PLANNING/local-debug.md](PLANNING/local-debug.md) for the full workflow and the runtime decision rule.
-
 ## Project structure
 
 ```
@@ -74,7 +62,8 @@ js/
   fuzzy-match.js        Levenshtein matching
 functions/
   ws.js                 Cloudflare Pages Function (WS proxy)
-word-drill.html         Original v1 prototype (reference)
+archived/
+  word-drill.html       Original v1 prototype (reference)
 PLANNING/               Design docs and deployment guide
 ```
 
