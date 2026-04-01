@@ -84,6 +84,7 @@ export class GeminiDrill {
       this._session.sendText('Start the drill. Announce the stem and letter.');
     }
     console.log('GeminiDrill: session fully open');
+    this._emitUiUpdate({ statusText: 'Listening…' });
   }
 
   _closeSession() {
@@ -151,7 +152,7 @@ export class GeminiDrill {
     this._closeSession();
     this.state.next();
     this._emitUiUpdate({
-      statusText: this.state.promptText,
+      statusText: 'Initializing…',
       clearHeard: true,
     });
     await this._openSession();

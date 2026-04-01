@@ -230,6 +230,9 @@ async function startGemini() {
     startOffline();
   };
 
+  showStatus('Initializing…');
+  $('prompt').textContent = drillState.promptText;
+
   try {
     await geminiDrill.start();
     setMode('gemini');
