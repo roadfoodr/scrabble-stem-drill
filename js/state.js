@@ -108,13 +108,25 @@ export class DrillState {
 
   _buildPattern(target) {
     const letters = target.split('');
-    if (letters.length >= 5) {
-      letters[2] = '_';
-      letters[letters.length - 3] = '_';
-    } else if (letters.length >= 3) {
-      letters[1] = '_';
+    const revealIndexes = new Set();
+
+    if (letters.length >= 7) {
+      revealIndexes.add(0);
+      revealIndexes.add(2);
+      revealIndexes.add(letters.length - 2);
+      revealIndexes.add(letters.length - 1);
+    } else if (letters.length >= 5) {
+      revealIndexes.add(0);
+      revealIndexes.add(2);
+      revealIndexes.add(letters.length - 1);
+    } else {
+      revealIndexes.add(0);
+      revealIndexes.add(Math.max(1, letters.length - 1));
     }
-    return letters.join(' ');
+
+    return letters
+      .map((letter, idx) => (revealIndexes.has(idx) ? letter : 'blank'))
+      .join(' ');
   }
 
   beginChallengeEnd(reason = 'complete') {
