@@ -104,11 +104,51 @@ function renderWordList(container, words, emptyText, itemClass = '') {
 }
 
 function renderFoundWords() {
-  renderWordList(
-    $('foundWords'),
-    drillState?.current ? drillState.completedWords : [],
-    'No correct words yet.'
+  const container = $('foundWords');
+  const words = drillState?.current ? drillState.completedWords : [];
+
+  // Clear and show empty state when there are no words
+  if (!words.length) {
+    container.innerHTML = '';
+    const empty = document.createElement('div');
+    empty.className = 'found-empty';
+    empty.textContent = 'No correct words yet.';
+    container.appendChild(empty);
+    return;
+  }
+
+  // Remove empty-state placeholder if present
+  const emptyEl = container.querySelector('.found-empty');
+  if (emptyEl) container.removeChild(emptyEl);
+
+  // Build a set of words already rendered
+  const rendered = new Set(
+    [...container.querySelectorAll('.found-word')].map(el => el.textContent)
   );
+
+  // Append only new words, with entrance animation
+  for (const word of words) {
+    if (!rendered.has(word)) {
+      const item = document.createElement('div');
+      item.className = 'found-word found-word-new';
+      item.textContent = word;
+      container.appendChild(item);
+      // Remove animation class after it completes so styles settle cleanly
+      item.addEventListener('animationend', () => item.classList.remove('found-word-new'), { once: true });
+    }
+  }
+
+  // If the full list was reset (e.g. new round started), re-render from scratch
+  const renderedCount = container.querySelectorAll('.found-word').length;
+  if (renderedCount > words.length) {
+    container.innerHTML = '';
+    for (const word of words) {
+      const item = document.createElement('div');
+      item.className = 'found-word';
+      item.textContent = word;
+      container.appendChild(item);
+    }
+  }
 }
 
 function renderRecap() {
