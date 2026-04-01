@@ -84,30 +84,64 @@ function clearHeardGuess() {
   showHeardGuess('');
 }
 
-function renderFoundWords() {
-  const foundWords = $('foundWords');
-  foundWords.textContent = '';
+function renderWordList(container, words, emptyText, itemClass = '') {
+  container.textContent = '';
 
-  if (!drillState?.current || drillState.current.found.size === 0) {
+  if (!words.length) {
     const empty = document.createElement('div');
     empty.className = 'found-empty';
-    empty.textContent = 'No correct words yet.';
-    foundWords.appendChild(empty);
+    empty.textContent = emptyText;
+    container.appendChild(empty);
     return;
   }
 
-  for (const word of drillState.current.found) {
+  for (const word of words) {
     const item = document.createElement('div');
-    item.className = 'found-word';
+    item.className = itemClass ? `found-word ${itemClass}` : 'found-word';
     item.textContent = word;
-    foundWords.appendChild(item);
+    container.appendChild(item);
   }
+}
+
+function renderFoundWords() {
+  renderWordList(
+    $('foundWords'),
+    drillState?.current ? drillState.foundWords : [],
+    'No correct words yet.'
+  );
+}
+
+function renderRecap() {
+  const recapPanel = $('recapPanel');
+  const foundWordsPanel = $('foundWordsPanel');
+  if (!drillState?.awaitingAdvance) {
+    recapPanel.hidden = true;
+    foundWordsPanel.hidden = false;
+    return;
+  }
+
+  const recap = drillState.getRecap();
+  recapPanel.hidden = false;
+  foundWordsPanel.hidden = true;
+  renderWordList(
+    $('recapFoundWords'),
+    recap?.foundWords || [],
+    'No correct words found.',
+    'found-word-good'
+  );
+  renderWordList(
+    $('recapMissedWords'),
+    recap?.remainingWords || [],
+    'No missed words.',
+    'found-word-missed'
+  );
 }
 
 function refreshDrillUi() {
   updateUI();
   showProgress();
   renderFoundWords();
+  renderRecap();
 }
 
 function applyGeminiUiUpdate(update) {
@@ -275,3 +309,4 @@ $('btnSkip').addEventListener('click', () => {
 // --- Init ---
 updateUI();
 renderFoundWords();
+renderRecap();

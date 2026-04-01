@@ -178,7 +178,42 @@ export class GeminiDrill {
       this._session?.sendText('We are still waiting after the recap. Briefly remind the user to say ready when they want the next challenge.');
       return;
     }
-    this._session?.sendText('hint');
+
+    const hint = this.state.advanceHint();
+    if (!hint) return;
+
+    if (hint.autoComplete) {
+      const status = this.state.markFound(hint.word);
+
+      if (status === 'correct' && this.state.allFound) {
+        this.state.beginChallengeEnd('complete');
+        this._emitUiUpdate({
+          statusText: this._recapStatusText(),
+          clearHeard: true,
+        });
+        this._session?.sendText(
+          `The hinted word ${hint.word} was just marked complete and the challenge is now finished. Briefly congratulate the user, recap all valid words, and ask them to say ready when they want the next challenge.`
+        );
+        return;
+      }
+
+      this._emitUiUpdate({
+        statusText: `${hint.word}: ${status} (hint)`,
+        clearHeard: true,
+      });
+      this._session?.sendText(
+        `Give this exact hint and nothing else: "The word is ${hint.word}."`
+      );
+      return;
+    }
+
+    this._emitUiUpdate({
+      statusText: `Hint: ${hint.text}`,
+      clearHeard: true,
+    });
+    this._session?.sendText(
+      `Give this exact hint and nothing else: "${hint.text}"`
+    );
   }
 
   async doSkip() {

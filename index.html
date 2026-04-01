@@ -110,6 +110,16 @@
       font-weight: 700;
       letter-spacing: 0.6px;
     }
+    .found-word-good {
+      background: #153a2b;
+      border-color: #1f5b42;
+      color: #d9f7e7;
+    }
+    .found-word-missed {
+      background: #3a1720;
+      border-color: #5b2433;
+      color: #ffd8df;
+    }
     .found-empty {
       color: #aab1d6;
     }
@@ -146,10 +156,22 @@
     <div id="status" class="status"></div>
     <div id="heardGuess" class="status heard" hidden></div>
 
-    <div class="stack">
+    <div id="foundWordsPanel" class="stack">
       <div class="section-title">Found Words</div>
       <div id="foundWords" class="found-list">
         <div class="found-empty">No correct words yet.</div>
+      </div>
+    </div>
+
+    <div id="recapPanel" class="stack" hidden>
+      <div class="section-title">Round Recap</div>
+      <div class="sub">Correctly found</div>
+      <div id="recapFoundWords" class="found-list" style="margin-top:8px;">
+        <div class="found-empty">No correct words found.</div>
+      </div>
+      <div class="sub" style="margin-top:12px;">Missed words</div>
+      <div id="recapMissedWords" class="found-list" style="margin-top:8px;">
+        <div class="found-empty">No missed words.</div>
       </div>
     </div>
 
