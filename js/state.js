@@ -32,6 +32,7 @@ export class DrillState {
       letter,
       targets: new Set(words),
       found: new Set(),
+      hinted: new Set(),
       hintLevel: 0,
       pendingAdvanceReason: null,
     };
@@ -54,6 +55,12 @@ export class DrillState {
   }
 
   get foundWords() {
+    return this.current
+      ? Array.from(this.current.found).filter(w => !this.current.hinted.has(w)).sort()
+      : [];
+  }
+
+  get completedWords() {
     return this.current ? Array.from(this.current.found).sort() : [];
   }
 
@@ -77,12 +84,15 @@ export class DrillState {
     }
   }
 
-  markFound(word) {
+  markFound(word, source = 'user') {
     if (!this.current) return 'invalid';
     const norm = word.toUpperCase().replace(/[^A-Z]/g, '');
     if (!this.current.targets.has(norm)) return 'invalid';
     if (this.current.found.has(norm)) return 'duplicate';
     this.current.found.add(norm);
+    if (source === 'hint') {
+      this.current.hinted.add(norm);
+    }
     this.resetHintLevel();
     return 'correct';
   }
@@ -91,41 +101,61 @@ export class DrillState {
     if (!this.current) return null;
     this.current.hintLevel += 1;
     const remaining = this.remainingWords;
-    if (remaining.length <= 0) return { level: 0, text: 'You already have them all.' };
+    if (remaining.length <= 0) {
+      return { level: 0, text: 'You already have them all.', displayText: 'You already have them all.' };
+    }
 
     const target = remaining[0];
     const level = this.current.hintLevel;
 
     if (level === 1) {
-      return { level, text: `One starts with ${target.slice(0, 2)}.`, word: target };
+      const text = `One starts with ${target.slice(0, 2)}.`;
+      return { level, text, displayText: text, word: target };
     } else if (level === 2) {
-      return { level, text: this._buildPattern(target), word: target };
+      const revealIndexes = this._getPatternRevealIndexes(target);
+      const spokenPattern = this._renderPattern(target, revealIndexes, 'blank');
+      const displayPattern = this._renderPattern(target, revealIndexes, '_');
+      return { level, text: spokenPattern, displayText: displayPattern, word: target };
     } else {
       this.resetHintLevel();
-      return { level: 3, text: target, word: target, autoComplete: true };
+      return { level: 3, text: target, displayText: target, word: target, autoComplete: true };
     }
   }
 
-  _buildPattern(target) {
+  _getPatternRevealIndexes(target) {
     const letters = target.split('');
     const revealIndexes = new Set();
 
-    if (letters.length >= 7) {
+    if (letters.length === 7) {
       revealIndexes.add(0);
-      revealIndexes.add(2);
-      revealIndexes.add(letters.length - 2);
-      revealIndexes.add(letters.length - 1);
+      revealIndexes.add(1);
+      const remainingIndexes = [2, 3, 4, 5, 6];
+      const additionalRevealCount = Math.random() < 0.5 ? 1 : 2;
+
+      for (let i = remainingIndexes.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [remainingIndexes[i], remainingIndexes[j]] = [remainingIndexes[j], remainingIndexes[i]];
+      }
+
+      for (let i = 0; i < additionalRevealCount; i++) {
+        revealIndexes.add(remainingIndexes[i]);
+      }
     } else if (letters.length >= 5) {
       revealIndexes.add(0);
-      revealIndexes.add(2);
+      revealIndexes.add(1);
       revealIndexes.add(letters.length - 1);
     } else {
       revealIndexes.add(0);
       revealIndexes.add(Math.max(1, letters.length - 1));
     }
 
+    return revealIndexes;
+  }
+
+  _renderPattern(target, revealIndexes, hiddenToken = 'blank') {
+    const letters = target.split('');
     return letters
-      .map((letter, idx) => (revealIndexes.has(idx) ? letter : 'blank'))
+      .map((letter, idx) => (revealIndexes.has(idx) ? letter : hiddenToken))
       .join(' ');
   }
 
@@ -143,13 +173,14 @@ export class DrillState {
 
   getRecap(reason = null) {
     if (!this.current) return null;
+    const foundWords = this.foundWords;
     return {
       stem: this.current.stem,
       letter: this.current.letter,
       reason: reason || this.current.pendingAdvanceReason || 'complete',
       allWords: this.allWords,
-      foundWords: this.foundWords,
-      remainingWords: this.remainingWords,
+      foundWords,
+      remainingWords: this.allWords.filter(w => !foundWords.includes(w)),
     };
   }
 
@@ -187,6 +218,7 @@ export class DrillState {
         stem: this.current.stem,
         letter: this.current.letter,
         found: Array.from(this.current.found),
+        hinted: Array.from(this.current.hinted),
         hintLevel: this.current.hintLevel,
         pendingAdvanceReason: this.current.pendingAdvanceReason,
       } : null,
@@ -204,6 +236,7 @@ export class DrillState {
         letter,
         targets: new Set(words),
         found: new Set(snapshot.current.found),
+        hinted: new Set(snapshot.current.hinted || []),
         hintLevel: snapshot.current.hintLevel,
         pendingAdvanceReason: snapshot.current.pendingAdvanceReason || null,
       };

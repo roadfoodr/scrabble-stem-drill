@@ -106,7 +106,7 @@ function renderWordList(container, words, emptyText, itemClass = '') {
 function renderFoundWords() {
   renderWordList(
     $('foundWords'),
-    drillState?.current ? drillState.foundWords : [],
+    drillState?.current ? drillState.completedWords : [],
     'No correct words yet.'
   );
 }

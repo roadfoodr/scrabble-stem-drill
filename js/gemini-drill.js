@@ -40,7 +40,9 @@ export class GeminiDrill {
     };
 
     this._session.onToolCall = (name, args) => {
-      if (name === 'mark_word_found') {
+      if (name === 'request_hint') {
+        return this._requestHint();
+      } else if (name === 'mark_word_found') {
         return this._handleWordFound(args.word);
       } else if (name === 'report_incorrect_guess') {
         return this._handleIncorrectGuess(args.heard);
@@ -173,17 +175,21 @@ export class GeminiDrill {
     return { status: 'ok', advancing: true };
   }
 
-  doHint() {
+  _requestHint() {
     if (this.state.awaitingAdvance) {
-      this._session?.sendText('We are still waiting after the recap. Briefly remind the user to say ready when they want the next challenge.');
-      return;
+      return {
+        status: 'waiting',
+        spokenText: 'Say ready when you want the next challenge.',
+        awaitingAdvance: true,
+      };
     }
 
     const hint = this.state.advanceHint();
-    if (!hint) return;
+    if (!hint) return { status: 'ignored' };
 
     if (hint.autoComplete) {
-      const status = this.state.markFound(hint.word);
+      const status = this.state.markFound(hint.word, 'hint');
+      const spelledWord = hint.word.split('').join(' ');
 
       if (status === 'correct' && this.state.allFound) {
         this.state.beginChallengeEnd('complete');
@@ -191,28 +197,60 @@ export class GeminiDrill {
           statusText: this._recapStatusText(),
           clearHeard: true,
         });
-        this._session?.sendText(
-          `The hinted word ${hint.word} was just marked complete and the challenge is now finished. Briefly congratulate the user, recap all valid words, and ask them to say ready when they want the next challenge.`
-        );
-        return;
+        return {
+          status: 'ok',
+          kind: 'autoComplete',
+          word: hint.word,
+          spokenText: `The word is ${spelledWord}. Marking it complete.`,
+          challengeComplete: true,
+        };
       }
 
       this._emitUiUpdate({
         statusText: `${hint.word}: ${status} (hint)`,
         clearHeard: true,
       });
+      return {
+        status: 'ok',
+        kind: 'autoComplete',
+        word: hint.word,
+        spokenText: status === 'correct'
+          ? `The word is ${spelledWord}. Marking it complete.`
+          : `The word is ${spelledWord}.`,
+        remainingCount: this.state.remainingCount,
+      };
+    }
+
+    this._emitUiUpdate({
+      statusText: `Hint: ${hint.displayText || hint.text}`,
+      clearHeard: true,
+    });
+    return {
+      status: 'ok',
+      kind: 'hint',
+      text: hint.text,
+      spokenText: hint.text,
+    };
+  }
+
+  doHint() {
+    if (this.state.awaitingAdvance) {
+      this._session?.sendText('We are still waiting after the recap. Briefly remind the user to say ready when they want the next challenge.');
+      return;
+    }
+
+    const hintResult = this._requestHint();
+    if (!hintResult || hintResult.status !== 'ok') return;
+
+    if (hintResult.challengeComplete) {
       this._session?.sendText(
-        `Give this exact hint and nothing else: "The word is ${hint.word}."`
+        `First say exactly "${hintResult.spokenText}" Then briefly congratulate the user, recap all valid words, and ask them to say ready when they want the next challenge.`
       );
       return;
     }
 
-    this._emitUiUpdate({
-      statusText: `Hint: ${hint.text}`,
-      clearHeard: true,
-    });
     this._session?.sendText(
-      `Give this exact hint and nothing else: "${hint.text}"`
+      `Give this exact hint and nothing else: "${hintResult.spokenText}"`
     );
   }
 

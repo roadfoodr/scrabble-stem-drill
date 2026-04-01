@@ -261,7 +261,7 @@ export class OfflineFallback {
     if (!hint) return;
 
     if (hint.autoComplete) {
-      const status = this.state.markFound(hint.word);
+      const status = this.state.markFound(hint.word, 'hint');
       this.onStatusUpdate?.(`${hint.word}: ${status} (hint)`);
 
       if (status === 'correct') {
@@ -276,7 +276,7 @@ export class OfflineFallback {
         await this._speak(`${this.state.remainingCount} left.`);
       }
     } else {
-      this.onStatusUpdate?.(`Hint: ${hint.text}`);
+      this.onStatusUpdate?.(`Hint: ${hint.displayText || hint.text}`);
       await this._speak(hint.text);
     }
   }

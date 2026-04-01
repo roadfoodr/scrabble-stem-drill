@@ -103,6 +103,14 @@ export class GeminiSession {
         tools: [{
           functionDeclarations: [
             {
+              name: 'request_hint',
+              description: 'Use this silently when the user asks for a hint so the app can advance the hint sequence and mirror the exact hint text in the UI. Read the returned spokenText aloud, and if challengeComplete is true then briefly congratulate the user, recap all valid words, and ask them to say ready when they want the next challenge.',
+              parameters: {
+                type: 'object',
+                properties: {},
+              },
+            },
+            {
               name: 'mark_word_found',
               description: 'Use this silently every time the user correctly guesses a new bingo word. Never say the tool name aloud. The UI updates only from this tool call. The tool response returns status "correct", "duplicate", or "invalid"; only treat the guess as newly accepted when the status is "correct".',
               parameters: {
