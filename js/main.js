@@ -37,8 +37,10 @@ function updateUI() {
       $('connPill').textContent = 'Mode: --';
       $('connPill').className = 'pill';
       $('prompt').textContent = 'Tap Start';
-      $('status').textContent = '';
+      showStatus('');
+      clearHeardGuess();
       $('progressPill').textContent = '--';
+      renderFoundWords();
       break;
     case 'gemini':
       btnPrimary.textContent = 'Pause';
@@ -67,14 +69,73 @@ function updateUI() {
   }
 }
 
-function showStatus(text) {
+function showStatus(text = '') {
   $('status').textContent = text;
+}
+
+function showHeardGuess(text = '') {
+  const heardGuess = $('heardGuess');
+  heardGuess.textContent = text ? `Heard: ${text}` : '';
+  heardGuess.hidden = !text;
+}
+
+function clearHeardGuess() {
+  showHeardGuess('');
+}
+
+function renderFoundWords() {
+  const foundWords = $('foundWords');
+  foundWords.textContent = '';
+
+  if (!drillState?.current || drillState.current.found.size === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'found-empty';
+    empty.textContent = 'No correct words yet.';
+    foundWords.appendChild(empty);
+    return;
+  }
+
+  for (const word of drillState.current.found) {
+    const item = document.createElement('div');
+    item.className = 'found-word';
+    item.textContent = word;
+    foundWords.appendChild(item);
+  }
+}
+
+function refreshDrillUi() {
+  showProgress();
+  renderFoundWords();
+}
+
+function applyGeminiUiUpdate(update) {
+  if (!update) {
+    refreshDrillUi();
+    return;
+  }
+
+  if (update.clearHeard) {
+    clearHeardGuess();
+  }
+
+  if (update.statusText !== undefined) {
+    clearHeardGuess();
+    showStatus(update.statusText);
+  }
+
+  if (update.heardText !== undefined) {
+    showHeardGuess(update.heardText);
+  }
+
+  refreshDrillUi();
 }
 
 function showProgress() {
   if (drillState?.current) {
     $('prompt').textContent = drillState.promptText;
     $('progressPill').textContent = `${drillState.foundCount} / ${drillState.current.targets.size} found`;
+  } else {
+    $('progressPill').textContent = '--';
   }
 }
 
@@ -85,11 +146,9 @@ async function startGemini() {
   drillState.loadPrompt(0);
 
   geminiDrill = new GeminiDrill(drillState, WORKER_URL);
-  geminiDrill.onStatusUpdate = (text) => {
-    showStatus(text);
-    showProgress();
-  };
+  geminiDrill.onUiUpdate = applyGeminiUiUpdate;
   geminiDrill.onFallbackToOffline = () => {
+    clearHeardGuess();
     showStatus('Gemini disconnected. Switching to offline mode.');
     cleanupGemini();
     startOffline();
@@ -98,7 +157,7 @@ async function startGemini() {
   try {
     await geminiDrill.start();
     setMode('gemini');
-    showProgress();
+    refreshDrillUi();
   } catch {
     cleanupGemini();
     startOffline();
@@ -120,12 +179,13 @@ function startOffline() {
 
   offline = new OfflineFallback(drillState);
   offline.onStatusUpdate = (text) => {
+    clearHeardGuess();
     showStatus(text);
-    showProgress();
+    refreshDrillUi();
   };
 
   setMode('offline');
-  showProgress();
+  refreshDrillUi();
   offline.start();
 }
 
@@ -143,6 +203,7 @@ function pause() {
     cleanupOffline();
   }
   setMode('paused');
+  clearHeardGuess();
   showStatus('Paused. Tap Resume to continue.');
 }
 
@@ -153,14 +214,12 @@ async function resume() {
   if (snapshot) {
     drillState.restore(snapshot);
   }
-  showProgress();
+  refreshDrillUi();
 
   geminiDrill = new GeminiDrill(drillState, WORKER_URL);
-  geminiDrill.onStatusUpdate = (text) => {
-    showStatus(text);
-    showProgress();
-  };
+  geminiDrill.onUiUpdate = applyGeminiUiUpdate;
   geminiDrill.onFallbackToOffline = () => {
+    clearHeardGuess();
     showStatus('Disconnected. Switching to offline.');
     cleanupGemini();
     startOffline();
@@ -179,6 +238,7 @@ async function resume() {
 $('btnPrimary').addEventListener('click', async () => {
   switch (mode) {
     case 'idle':
+      clearHeardGuess();
       showStatus('Connecting...');
       await startGemini();
       break;
@@ -187,6 +247,7 @@ $('btnPrimary').addEventListener('click', async () => {
       pause();
       break;
     case 'paused':
+      clearHeardGuess();
       showStatus('Reconnecting...');
       await resume();
       break;
@@ -206,10 +267,12 @@ $('btnSkip').addEventListener('click', () => {
     geminiDrill?.doSkip();
   } else if (mode === 'offline') {
     drillState.skip();
-    showProgress();
+    clearHeardGuess();
+    refreshDrillUi();
     offline._speak('Skipping. ' + offline._promptPhrase());
   }
 });
 
 // --- Init ---
 updateUI();
+renderFoundWords();

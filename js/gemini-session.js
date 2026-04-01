@@ -113,6 +113,17 @@ export class GeminiSession {
                 required: ['word'],
               },
             },
+            {
+              name: 'report_incorrect_guess',
+              description: 'Use this silently when the user gives a guess that is not in the target set so the UI can show what you think you heard. Never say the tool name aloud.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  heard: { type: 'string', description: 'The word or short phrase you believe the user said' },
+                },
+                required: ['heard'],
+              },
+            },
           ],
         }],
       },

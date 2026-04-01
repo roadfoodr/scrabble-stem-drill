@@ -62,6 +62,9 @@
       word-break: break-word;
       margin-top: 10px;
     }
+    .heard {
+      color: #f6d7a8;
+    }
     .pill {
       display: inline-block;
       background: #111428;
@@ -78,6 +81,39 @@
     .small { font-size: 12px; color: #aab1d6; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
     .divider { height: 1px; background: #2a2f45; margin: 14px 0; }
+    .stack {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid #2a2f45;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: #aab1d6;
+      margin-bottom: 8px;
+    }
+    .found-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .found-word,
+    .found-empty {
+      border: 1px solid #2a2f45;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #111428;
+    }
+    .found-word {
+      font-weight: 700;
+      letter-spacing: 0.6px;
+    }
+    .found-empty {
+      color: #aab1d6;
+    }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
@@ -107,6 +143,15 @@
     </div>
 
     <div id="status" class="status"></div>
+    <div id="heardGuess" class="status heard" hidden></div>
+
+    <div class="stack">
+      <div class="section-title">Found Words</div>
+      <div id="foundWords" class="found-list">
+        <div class="found-empty">No correct words yet.</div>
+      </div>
+    </div>
+
     <div class="small" style="margin-top:12px;">
       Best on iPhone: keep foregrounded, or "Add to Home Screen". Falls back to offline voice if Gemini is unavailable.
     </div>

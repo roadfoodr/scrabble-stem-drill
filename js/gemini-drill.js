@@ -12,7 +12,7 @@ export class GeminiDrill {
     this._playback = null;
     this._advancing = false;
 
-    this.onStatusUpdate = null;        // (text: string) => void
+    this.onUiUpdate = null;            // ({ statusText?: string, heardText?: string, clearHeard?: boolean }) => void
     this.onFallbackToOffline = null;   // () => void
   }
 
@@ -42,11 +42,13 @@ export class GeminiDrill {
     this._session.onToolCall = (name, args) => {
       if (name === 'mark_word_found') {
         this._handleWordFound(args.word);
+      } else if (name === 'report_incorrect_guess') {
+        this._handleIncorrectGuess(args.heard);
       }
     };
 
     this._session.onError = (err) => {
-      this.onStatusUpdate?.(`Connection error: ${err.message}`);
+      this._emitUiUpdate({ statusText: `Connection error: ${err.message}`, clearHeard: true });
     };
 
     this._session.onDisconnect = (info) => {
@@ -81,9 +83,20 @@ export class GeminiDrill {
     this._session = null;
   }
 
+  _emitUiUpdate(update) {
+    this.onUiUpdate?.(update);
+  }
+
   _handleWordFound(word) {
     const result = this.state.markFound(word);
-    this.onStatusUpdate?.(`${word}: ${result}`);
+    this._emitUiUpdate({
+      statusText: `${word}: ${result}`,
+      clearHeard: true,
+    });
+
+    if (result !== 'correct') {
+      return;
+    }
 
     if (this.state.allFound) {
       // Give Gemini time to speak congratulations, then advance
@@ -95,10 +108,19 @@ export class GeminiDrill {
     }
   }
 
+  _handleIncorrectGuess(heard) {
+    const text = String(heard || '').trim();
+    if (!text) return;
+    this._emitUiUpdate({ heardText: text });
+  }
+
   async _nextChallenge() {
     this._closeSession();
     this.state.next();
-    this.onStatusUpdate?.(this.state.promptText);
+    this._emitUiUpdate({
+      statusText: this.state.promptText,
+      clearHeard: true,
+    });
     await this._openSession();
   }
 
@@ -110,7 +132,10 @@ export class GeminiDrill {
     this._advancing = true;
     this._closeSession();
     this.state.skip();
-    this.onStatusUpdate?.(`Skipped. ${this.state.promptText}`);
+    this._emitUiUpdate({
+      statusText: `Skipped. ${this.state.promptText}`,
+      clearHeard: true,
+    });
     this._advancing = false;
     await this._openSession();
   }
