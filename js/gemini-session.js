@@ -126,13 +126,21 @@ export class GeminiSession {
             },
             {
               name: 'end_challenge',
-              description: 'Use this silently when the current challenge should end so the app can advance deterministically.',
+              description: 'Use this silently when the current challenge should end. Reason "skip" goes straight to the next challenge; other reasons enter recap mode and wait for the user to say they are ready for the next challenge.',
               parameters: {
                 type: 'object',
                 properties: {
-                  reason: { type: 'string', description: 'Why the challenge is ending: skip, complete, or other short reason' },
+                  reason: { type: 'string', description: 'Why the challenge is ending: skip, give_up, complete, finish, or other short reason' },
                 },
                 required: ['reason'],
+              },
+            },
+            {
+              name: 'advance_to_next_challenge',
+              description: 'Use this silently after the user says ready, continue, next, or another clear affirmative response while recap mode is active.',
+              parameters: {
+                type: 'object',
+                properties: {},
               },
             },
           ],

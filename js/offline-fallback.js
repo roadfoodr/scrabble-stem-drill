@@ -34,7 +34,15 @@ export class OfflineFallback {
       this.state.buildQueue();
       this.state.loadPrompt(0);
     }
-    await this._speak('Offline mode. ' + this._promptPhrase());
+
+    if (this.state.awaitingAdvance) {
+      const recap = this.state.getRecap();
+      this.onStatusUpdate?.(`Recap: ${recap?.allWords.join(', ')}\nSay ready when you want the next challenge.`);
+      await this._speak('Offline mode. ' + this._recapPhrase());
+    } else {
+      await this._speak('Offline mode. ' + this._promptPhrase());
+    }
+
     this._listen();
   }
 
@@ -46,6 +54,12 @@ export class OfflineFallback {
 
   _promptPhrase() {
     return `${this.state.current.stem} plus ${this.state.current.letter}. Tell me all the bingos.`;
+  }
+
+  _recapPhrase() {
+    const recap = this.state.getRecap();
+    if (!recap) return 'Say ready when you want the next challenge.';
+    return `The valid words are ${recap.allWords.join(', ')}. Say ready when you want the next challenge.`;
   }
 
   _speak(text) {
@@ -107,8 +121,75 @@ export class OfflineFallback {
     }
   }
 
+  _extractFragments(norm) {
+    const groups = norm.split(/\s+AND\s+/).map(group => group.trim()).filter(Boolean);
+    const fragments = [];
+
+    for (const group of groups) {
+      const tokens = group.split(/\s+/).map(token => token.replace(/[^A-Z]/g, '')).filter(Boolean);
+      let letterBuffer = '';
+
+      for (const token of tokens) {
+        if (token.length === 1) {
+          letterBuffer += token;
+          continue;
+        }
+
+        if (letterBuffer.length >= 2) {
+          fragments.push(letterBuffer);
+        }
+        letterBuffer = '';
+
+        if (token.length >= 4) {
+          fragments.push(token);
+        }
+      }
+
+      if (letterBuffer.length >= 2) {
+        fragments.push(letterBuffer);
+      }
+    }
+
+    return fragments;
+  }
+
+  _isEndChallengeRequest(norm) {
+    return /\b(I GIVE UP|GIVE UP|COMPLETE|FINISH|DONE|MOVE ON|END CHALLENGE|END THIS CHALLENGE)\b/.test(norm);
+  }
+
+  async _advanceWhenReady() {
+    if (!this.state.advanceIfConfirmed('ready')) return;
+    this.onStatusUpdate?.(this.state.promptText);
+    await this._speak(this._promptPhrase());
+  }
+
+  async _beginChallengeEnd(reason) {
+    const recap = this.state.beginChallengeEnd(reason);
+    if (!recap) return;
+
+    this.onStatusUpdate?.(`Recap: ${recap.allWords.join(', ')}\nSay ready when you want the next challenge.`);
+
+    const intro = reason === 'complete'
+      ? 'Complete.'
+      : 'Okay.';
+    await this._speak(`${intro} ${this._recapPhrase()}`);
+  }
+
   async _processTranscript(transcript) {
     const norm = transcript.toUpperCase().replace(/[^A-Z ]/g, '');
+
+    if (this.state.awaitingAdvance) {
+      if (this.state.isAdvanceConfirmation(norm)) {
+        await this._advanceWhenReady();
+      } else if (/\bREPEAT\b/.test(norm)) {
+        this.onStatusUpdate?.(`Recap: ${this.state.getRecap()?.allWords.join(', ')}\nSay ready when you want the next challenge.`);
+        await this._speak(this._recapPhrase());
+      } else {
+        this.onStatusUpdate?.('Say ready when you want the next challenge.');
+        await this._speak('Say ready when you want the next challenge.');
+      }
+      return;
+    }
 
     // Check voice commands first
     if (/\bHINT\b/.test(norm)) {
@@ -121,15 +202,16 @@ export class OfflineFallback {
       await this._speak('Skipping. ' + this._promptPhrase());
       return;
     }
+    if (this._isEndChallengeRequest(norm)) {
+      await this._beginChallengeEnd('give_up');
+      return;
+    }
     if (/\bREPEAT\b/.test(norm)) {
       await this._speak(this._promptPhrase());
       return;
     }
 
-    // Split into candidate words on spaces, commas, "and"
-    const fragments = norm.split(/\s+AND\s+|\s+/)
-      .map(f => f.replace(/[^A-Z]/g, ''))
-      .filter(f => f.length >= 4);
+    const fragments = this._extractFragments(norm);
 
     const candidates = Array.from(this.state.current.targets);
     const results = [];
@@ -160,10 +242,7 @@ export class OfflineFallback {
     this.onStatusUpdate?.(results.join('\n'));
 
     if (this.state.allFound) {
-      await this._speak(`Complete! You got all ${this.state.current.targets.size}.`);
-      this.state.next();
-      this.onStatusUpdate?.(this.state.promptText);
-      await this._speak(this._promptPhrase());
+      await this._beginChallengeEnd('complete');
     } else if (correctCount > 0) {
       await this._speak(`${correctCount} correct. ${this.state.remainingCount} left.`);
     } else {
@@ -172,14 +251,43 @@ export class OfflineFallback {
   }
 
   async _doHint() {
+    if (this.state.awaitingAdvance) {
+      this.onStatusUpdate?.('Say ready when you want the next challenge.');
+      await this._speak('Say ready when you want the next challenge.');
+      return;
+    }
+
     const hint = this.state.advanceHint();
     if (!hint) return;
-    this.onStatusUpdate?.(`Hint: ${hint.text}`);
-    if (hint.level === 4) {
-      // Spell it out on reveal
-      await this._speak(`The word is ${hint.text.split('').join(' ')}.`);
+
+    if (hint.autoComplete) {
+      const status = this.state.markFound(hint.word);
+      this.onStatusUpdate?.(`${hint.word}: ${status} (hint)`);
+
+      if (status === 'correct') {
+        await this._speak(`The word is ${hint.word.split('').join(' ')}. Marking it complete.`);
+      } else {
+        await this._speak(`The word is ${hint.word.split('').join(' ')}.`);
+      }
+
+      if (this.state.allFound) {
+        await this._beginChallengeEnd('complete');
+      } else {
+        await this._speak(`${this.state.remainingCount} left.`);
+      }
     } else {
+      this.onStatusUpdate?.(`Hint: ${hint.text}`);
       await this._speak(hint.text);
     }
+  }
+
+  async doSkip() {
+    if (this.state.awaitingAdvance) {
+      await this._speak('Say ready when you want the next challenge.');
+      return;
+    }
+    this.state.skip();
+    this.onStatusUpdate?.(`Skipped. ${this.state.promptText}`);
+    await this._speak('Skipping. ' + this._promptPhrase());
   }
 }

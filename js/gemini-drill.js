@@ -11,7 +11,6 @@ export class GeminiDrill {
     this._capture = null;
     this._playback = null;
     this._advancing = false;
-    this._advanceTimer = null;
 
     this.onUiUpdate = null;            // ({ statusText?: string, heardText?: string, clearHeard?: boolean }) => void
     this.onFallbackToOffline = null;   // () => void
@@ -47,6 +46,8 @@ export class GeminiDrill {
         this._handleIncorrectGuess(args.heard);
       } else if (name === 'end_challenge') {
         this._handleEndChallenge(args.reason);
+      } else if (name === 'advance_to_next_challenge') {
+        this._handleAdvanceToNextChallenge();
       }
     };
 
@@ -55,17 +56,16 @@ export class GeminiDrill {
     };
 
     this._session.onDisconnect = (info) => {
-      console.log('GeminiDrill: onDisconnect fired, advancing:', this._advancing, info || null);
-      if (!this._advancing) {
-        this.onFallbackToOffline?.();
-      }
+      console.log('GeminiDrill: onDisconnect fired', info || null);
+      this.onFallbackToOffline?.();
     };
 
     const prompt = buildChallengePrompt(
       this.state.current.stem,
       this.state.current.letter,
       targets,
-      found
+      found,
+      this.state.current.pendingAdvanceReason
     );
 
     console.log('GeminiDrill: connecting...');
@@ -74,12 +74,15 @@ export class GeminiDrill {
     await this._capture.start();
     console.log('GeminiDrill: capture started, sending kick-off text...');
     this._capture.onChunk = (b64) => this._session?.sendAudio(b64);
-    this._session.sendText('Start the drill. Announce the stem and letter.');
+    if (this.state.awaitingAdvance) {
+      this._session.sendText('We are waiting after the recap. Briefly remind the user to say ready when they want the next challenge.');
+    } else {
+      this._session.sendText('Start the drill. Announce the stem and letter.');
+    }
     console.log('GeminiDrill: session fully open');
   }
 
   _closeSession() {
-    this._clearAdvanceTimer();
     this._capture?.stop();
     this._capture = null;
     if (this._session) this._session.onDisconnect = null;
@@ -91,11 +94,10 @@ export class GeminiDrill {
     this.onUiUpdate?.(update);
   }
 
-  _clearAdvanceTimer() {
-    if (this._advanceTimer) {
-      clearTimeout(this._advanceTimer);
-      this._advanceTimer = null;
-    }
+  _recapStatusText() {
+    const recap = this.state.getRecap();
+    if (!recap) return 'Say ready when you want the next challenge.';
+    return `Recap: ${recap.allWords.join(', ')}\nSay ready when you want the next challenge.`;
   }
 
   _handleWordFound(word) {
@@ -110,7 +112,7 @@ export class GeminiDrill {
     }
 
     if (this.state.allFound) {
-      this._scheduleChallengeAdvance('complete', 3000);
+      this.state.beginChallengeEnd('complete');
     }
   }
 
@@ -122,37 +124,52 @@ export class GeminiDrill {
 
   _handleEndChallenge(reason) {
     const normalized = String(reason || 'other').trim().toLowerCase() || 'other';
-    const delayMs = normalized === 'complete' ? 3000 : 0;
-    this._scheduleChallengeAdvance(normalized, delayMs);
+    if (normalized === 'skip') {
+      this._handleAdvanceToNextChallenge(true);
+      return;
+    }
+    this.state.beginChallengeEnd(normalized);
+    this._emitUiUpdate({
+      statusText: this._recapStatusText(),
+      clearHeard: true,
+    });
   }
 
-  _scheduleChallengeAdvance(reason, delayMs) {
-    if (this._advancing) return;
-
-    this._advancing = true;
-    this._clearAdvanceTimer();
-    this._advanceTimer = setTimeout(() => {
-      this._advanceTimer = null;
-      this._nextChallenge(reason);
-    }, delayMs);
-  }
-
-  async _nextChallenge(reason = 'other') {
+  async _nextChallenge() {
     this._closeSession();
     this.state.next();
     this._emitUiUpdate({
-      statusText: reason === 'skip' ? `Skipped. ${this.state.promptText}` : this.state.promptText,
+      statusText: this.state.promptText,
       clearHeard: true,
     });
-    this._advancing = false;
     await this._openSession();
+    this._advancing = false;
+  }
+
+  _handleAdvanceToNextChallenge(force = false) {
+    if ((!this.state.awaitingAdvance && !force) || this._advancing) return;
+    this._advancing = true;
+    setTimeout(() => {
+      this._nextChallenge().catch((err) => {
+        this._advancing = false;
+        this._emitUiUpdate({
+          statusText: `Connection error: ${err.message}`,
+          clearHeard: true,
+        });
+      });
+    }, 0);
   }
 
   doHint() {
+    if (this.state.awaitingAdvance) {
+      this._session?.sendText('We are still waiting after the recap. Briefly remind the user to say ready when they want the next challenge.');
+      return;
+    }
     this._session?.sendText('hint');
   }
 
   async doSkip() {
-    this._scheduleChallengeAdvance('skip', 0);
+    if (this.state.awaitingAdvance) return;
+    this._handleAdvanceToNextChallenge(true);
   }
 }

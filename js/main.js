@@ -27,6 +27,7 @@ function updateUI() {
   const btnPrimary = $('btnPrimary');
   const btnHint = $('btnHint');
   const btnSkip = $('btnSkip');
+  const recapPending = !!drillState?.awaitingAdvance;
 
   switch (mode) {
     case 'idle':
@@ -45,16 +46,16 @@ function updateUI() {
     case 'gemini':
       btnPrimary.textContent = 'Pause';
       btnPrimary.className = 'danger';
-      btnHint.disabled = false;
-      btnSkip.disabled = false;
+      btnHint.disabled = recapPending;
+      btnSkip.disabled = recapPending;
       $('connPill').textContent = 'Mode: Gemini';
       $('connPill').className = 'pill conn-gemini';
       break;
     case 'offline':
       btnPrimary.textContent = 'Pause';
       btnPrimary.className = 'danger';
-      btnHint.disabled = false;
-      btnSkip.disabled = false;
+      btnHint.disabled = recapPending;
+      btnSkip.disabled = recapPending;
       $('connPill').textContent = 'Mode: Offline';
       $('connPill').className = 'pill conn-offline';
       break;
@@ -104,6 +105,7 @@ function renderFoundWords() {
 }
 
 function refreshDrillUi() {
+  updateUI();
   showProgress();
   renderFoundWords();
 }
@@ -266,10 +268,7 @@ $('btnSkip').addEventListener('click', () => {
   if (mode === 'gemini') {
     geminiDrill?.doSkip();
   } else if (mode === 'offline') {
-    drillState.skip();
-    clearHeardGuess();
-    refreshDrillUi();
-    offline._speak('Skipping. ' + offline._promptPhrase());
+    offline?.doSkip();
   }
 });
 
