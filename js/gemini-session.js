@@ -124,6 +124,17 @@ export class GeminiSession {
                 required: ['heard'],
               },
             },
+            {
+              name: 'end_challenge',
+              description: 'Use this silently when the current challenge should end so the app can advance deterministically.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  reason: { type: 'string', description: 'Why the challenge is ending: skip, complete, or other short reason' },
+                },
+                required: ['reason'],
+              },
+            },
           ],
         }],
       },

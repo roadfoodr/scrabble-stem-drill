@@ -11,6 +11,7 @@ export class GeminiDrill {
     this._capture = null;
     this._playback = null;
     this._advancing = false;
+    this._advanceTimer = null;
 
     this.onUiUpdate = null;            // ({ statusText?: string, heardText?: string, clearHeard?: boolean }) => void
     this.onFallbackToOffline = null;   // () => void
@@ -44,6 +45,8 @@ export class GeminiDrill {
         this._handleWordFound(args.word);
       } else if (name === 'report_incorrect_guess') {
         this._handleIncorrectGuess(args.heard);
+      } else if (name === 'end_challenge') {
+        this._handleEndChallenge(args.reason);
       }
     };
 
@@ -76,6 +79,7 @@ export class GeminiDrill {
   }
 
   _closeSession() {
+    this._clearAdvanceTimer();
     this._capture?.stop();
     this._capture = null;
     if (this._session) this._session.onDisconnect = null;
@@ -85,6 +89,13 @@ export class GeminiDrill {
 
   _emitUiUpdate(update) {
     this.onUiUpdate?.(update);
+  }
+
+  _clearAdvanceTimer() {
+    if (this._advanceTimer) {
+      clearTimeout(this._advanceTimer);
+      this._advanceTimer = null;
+    }
   }
 
   _handleWordFound(word) {
@@ -99,12 +110,7 @@ export class GeminiDrill {
     }
 
     if (this.state.allFound) {
-      // Give Gemini time to speak congratulations, then advance
-      this._advancing = true;
-      setTimeout(() => {
-        this._advancing = false;
-        this._nextChallenge();
-      }, 3000);
+      this._scheduleChallengeAdvance('complete', 3000);
     }
   }
 
@@ -114,13 +120,31 @@ export class GeminiDrill {
     this._emitUiUpdate({ heardText: text });
   }
 
-  async _nextChallenge() {
+  _handleEndChallenge(reason) {
+    const normalized = String(reason || 'other').trim().toLowerCase() || 'other';
+    const delayMs = normalized === 'complete' ? 3000 : 0;
+    this._scheduleChallengeAdvance(normalized, delayMs);
+  }
+
+  _scheduleChallengeAdvance(reason, delayMs) {
+    if (this._advancing) return;
+
+    this._advancing = true;
+    this._clearAdvanceTimer();
+    this._advanceTimer = setTimeout(() => {
+      this._advanceTimer = null;
+      this._nextChallenge(reason);
+    }, delayMs);
+  }
+
+  async _nextChallenge(reason = 'other') {
     this._closeSession();
     this.state.next();
     this._emitUiUpdate({
-      statusText: this.state.promptText,
+      statusText: reason === 'skip' ? `Skipped. ${this.state.promptText}` : this.state.promptText,
       clearHeard: true,
     });
+    this._advancing = false;
     await this._openSession();
   }
 
@@ -129,14 +153,6 @@ export class GeminiDrill {
   }
 
   async doSkip() {
-    this._advancing = true;
-    this._closeSession();
-    this.state.skip();
-    this._emitUiUpdate({
-      statusText: `Skipped. ${this.state.promptText}`,
-      clearHeard: true,
-    });
-    this._advancing = false;
-    await this._openSession();
+    this._scheduleChallengeAdvance('skip', 0);
   }
 }
