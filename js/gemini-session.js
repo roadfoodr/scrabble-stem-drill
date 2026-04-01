@@ -104,7 +104,7 @@ export class GeminiSession {
           functionDeclarations: [
             {
               name: 'mark_word_found',
-              description: 'Use this silently every time the user correctly guesses a new bingo word. Never say the tool name aloud. The UI updates only from this tool call.',
+              description: 'Use this silently every time the user correctly guesses a new bingo word. Never say the tool name aloud. The UI updates only from this tool call. The tool response returns status "correct", "duplicate", or "invalid"; only treat the guess as newly accepted when the status is "correct".',
               parameters: {
                 type: 'object',
                 properties: {
@@ -196,14 +196,22 @@ export class GeminiSession {
           id: fc.id,
           args: fc.args || {},
         });
-        this.onToolCall?.(fc.name, fc.args || {});
+        let toolResult = { status: 'ok' };
+        try {
+          toolResult = this.onToolCall?.(fc.name, fc.args || {}) || { status: 'ok' };
+        } catch (error) {
+          toolResult = {
+            status: 'error',
+            message: error instanceof Error ? error.message : String(error),
+          };
+        }
         // Send tool response so Gemini can continue
         const toolResponse = {
           toolResponse: {
             functionResponses: [{
               id: fc.id,
               name: fc.name,
-              response: { result: 'ok' },
+              response: toolResult,
             }],
           },
         };

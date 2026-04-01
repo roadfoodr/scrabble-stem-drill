@@ -41,14 +41,16 @@ export class GeminiDrill {
 
     this._session.onToolCall = (name, args) => {
       if (name === 'mark_word_found') {
-        this._handleWordFound(args.word);
+        return this._handleWordFound(args.word);
       } else if (name === 'report_incorrect_guess') {
-        this._handleIncorrectGuess(args.heard);
+        return this._handleIncorrectGuess(args.heard);
       } else if (name === 'end_challenge') {
-        this._handleEndChallenge(args.reason);
+        return this._handleEndChallenge(args.reason);
       } else if (name === 'advance_to_next_challenge') {
-        this._handleAdvanceToNextChallenge();
+        return this._handleAdvanceToNextChallenge();
       }
+
+      return { status: 'ignored' };
     };
 
     this._session.onError = (err) => {
@@ -114,25 +116,33 @@ export class GeminiDrill {
     if (this.state.allFound) {
       this.state.beginChallengeEnd('complete');
     }
+
+    return {
+      status: result,
+      word,
+      remainingCount: this.state.remainingCount,
+      foundCount: this.state.foundCount,
+    };
   }
 
   _handleIncorrectGuess(heard) {
     const text = String(heard || '').trim();
-    if (!text) return;
+    if (!text) return { status: 'ignored' };
     this._emitUiUpdate({ heardText: text });
+    return { status: 'ok', heard: text };
   }
 
   _handleEndChallenge(reason) {
     const normalized = String(reason || 'other').trim().toLowerCase() || 'other';
     if (normalized === 'skip') {
-      this._handleAdvanceToNextChallenge(true);
-      return;
+      return this._handleAdvanceToNextChallenge(true);
     }
     this.state.beginChallengeEnd(normalized);
     this._emitUiUpdate({
       statusText: this._recapStatusText(),
       clearHeard: true,
     });
+    return { status: 'ok', reason: normalized, awaitingAdvance: true };
   }
 
   async _nextChallenge() {
@@ -147,7 +157,9 @@ export class GeminiDrill {
   }
 
   _handleAdvanceToNextChallenge(force = false) {
-    if ((!this.state.awaitingAdvance && !force) || this._advancing) return;
+    if ((!this.state.awaitingAdvance && !force) || this._advancing) {
+      return { status: 'ignored' };
+    }
     this._advancing = true;
     setTimeout(() => {
       this._nextChallenge().catch((err) => {
@@ -158,6 +170,7 @@ export class GeminiDrill {
         });
       });
     }, 0);
+    return { status: 'ok', advancing: true };
   }
 
   doHint() {
